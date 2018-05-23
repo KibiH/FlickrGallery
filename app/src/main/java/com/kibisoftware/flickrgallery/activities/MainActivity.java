@@ -17,6 +17,7 @@ import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.SearchView;
@@ -158,6 +159,28 @@ public class MainActivity extends AppCompatActivity implements Observer {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.optionsmenu, menu);
+
+        MenuItem search = menu.findItem(R.id.search);
+        search.setOnActionExpandListener(new MenuItem.OnActionExpandListener() {
+            @Override
+            public boolean onMenuItemActionExpand(MenuItem item) {
+                return true;
+            }
+
+            @Override
+            public boolean onMenuItemActionCollapse(MenuItem item) {
+                // we collapsed the menu, go back to regular list
+                currentUrl = recent_url;
+
+                currentPage = 1;
+                thePhotos.clear();
+                adapter.notifyDataSetChanged();
+                scrollListener.resetState();
+                String urlToUse = currentUrl + "&page=" + currentPage;
+                new DownloadListFromURL().execute(urlToUse);
+                return true;
+            }
+        });
 
         // Associate searchable configuration with the SearchView
         SearchManager searchManager =

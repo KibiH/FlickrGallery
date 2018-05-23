@@ -1,7 +1,8 @@
 package com.kibisoftware.flickrgallery.recyclers;
 
-import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
@@ -11,6 +12,9 @@ import android.widget.ImageView;
 import android.widget.ProgressBar;
 
 import com.kibisoftware.flickrgallery.R;
+import com.kibisoftware.flickrgallery.activities.ImageDetailActivity;
+import com.kibisoftware.flickrgallery.activities.MainActivity;
+import com.kibisoftware.flickrgallery.data.Photo;
 import com.nostra13.universalimageloader.core.DisplayImageOptions;
 import com.nostra13.universalimageloader.core.ImageLoader;
 import com.nostra13.universalimageloader.core.assist.FailReason;
@@ -20,16 +24,39 @@ import com.nostra13.universalimageloader.core.listener.SimpleImageLoadingListene
 import java.util.ArrayList;
 
 public class MainGridListAdapter extends RecyclerView.Adapter<MainGridListAdapter.ViewHolder> {
-    private ArrayList<String> photosList;
+    private ArrayList<Photo> thePhotos;
     private LayoutInflater inflater;
+    private RecyclerView recyclerView;
+    private MainActivity activity;
 
-    public void setList(ArrayList<String> incomingPhotos) {
-        if (null == photosList) {
-            photosList = incomingPhotos;
+    private final View.OnClickListener mOnClickListener = new View.OnClickListener() {
+
+        @Override
+        public void onClick(View v) {
+            int itemPosition = recyclerView.getChildLayoutPosition(v);
+            Photo photo = thePhotos.get(itemPosition);
+
+            Intent intent = new Intent(activity,
+                    ImageDetailActivity.class);
+            Bundle bundle = new Bundle();
+            bundle.putString("id", photo.id);
+            bundle.putString("farm", photo.farm);
+            bundle.putString("server", photo.server);
+            bundle.putString("secret", photo.secret);
+            bundle.putString("title", photo.title);
+            intent.putExtra("key", bundle);
+            activity.startActivity(intent);
+
+        }
+    };
+
+    public void setList(ArrayList<Photo> incomingPhotos) {
+        if (null == thePhotos) {
+            thePhotos = incomingPhotos;
             notifyDataSetChanged();
         } else {
-            synchronized (photosList) {
-                photosList = incomingPhotos;
+            synchronized (thePhotos) {
+                thePhotos = incomingPhotos;
                 notifyDataSetChanged();
             }
         }
@@ -37,8 +64,10 @@ public class MainGridListAdapter extends RecyclerView.Adapter<MainGridListAdapte
 
     private DisplayImageOptions options;
 
-    public MainGridListAdapter(Context context) {
-        inflater = LayoutInflater.from(context);
+    public MainGridListAdapter(MainActivity activity, RecyclerView recyclerView) {
+        this.activity = activity;
+        this.recyclerView = recyclerView;
+        inflater = LayoutInflater.from(activity);
 
         options = new DisplayImageOptions.Builder()
                 .showImageOnLoading(R.drawable.ic_stub)
@@ -53,7 +82,7 @@ public class MainGridListAdapter extends RecyclerView.Adapter<MainGridListAdapte
 
     @Override
     public int getItemCount() {
-        return (photosList != null) ? photosList.size() : 0;
+        return (thePhotos != null) ? thePhotos.size() : 0;
     }
 
 
@@ -65,22 +94,25 @@ public class MainGridListAdapter extends RecyclerView.Adapter<MainGridListAdapte
     @NonNull
     @Override
     public MainGridListAdapter.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = null;
-        // create a new view
-        v = LayoutInflater.from(parent.getContext())
+        View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.grid_item, parent, false);
-        ViewHolder vh = new ViewHolder(v);
-        return vh;
+        v.setOnClickListener(mOnClickListener);
+        return  new ViewHolder(v);
     }
 
     @Override
     public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
 
-        if (photosList != null) {
-            synchronized (photosList) {
-                if (photosList.size() > position) {
+        if (thePhotos != null) {
+            synchronized (thePhotos) {
+                if (thePhotos.size() > position) {
+                    // get the URL from the photo
+                    Photo photo = thePhotos.get(position);
+                    String url = "https://farm" + photo.farm
+                            + ".staticflickr.com/" + photo.server + "/"
+                            + photo.id + "_" + photo.secret + "_" + "q" + ".jpg";
                     ImageLoader.getInstance()
-                            .displayImage(photosList.get(position), holder.imageView, options, new SimpleImageLoadingListener() {
+                            .displayImage(url, holder.imageView, options, new SimpleImageLoadingListener() {
                                 @Override
                                 public void onLoadingStarted(String imageUri, View view) {
                                     holder.progressBar.setProgress(0);

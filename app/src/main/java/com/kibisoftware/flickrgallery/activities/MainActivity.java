@@ -21,7 +21,6 @@ import com.kibisoftware.flickrgallery.Interfaces.Observer;
 import com.kibisoftware.flickrgallery.R;
 import com.kibisoftware.flickrgallery.data.FlickrData;
 import com.kibisoftware.flickrgallery.data.Photo;
-import com.kibisoftware.flickrgallery.datarequests.GetPhotos;
 import com.kibisoftware.flickrgallery.recyclers.EndlessRecyclerViewScrollListener;
 import com.kibisoftware.flickrgallery.recyclers.MainGridListAdapter;
 import com.nostra13.universalimageloader.cache.disc.naming.Md5FileNameGenerator;
@@ -39,9 +38,6 @@ import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity implements Observer {
 
-    public static final String recentCache = Environment.getExternalStorageDirectory().getPath()
-                                                        + "/flickrgallery/feed/";
-
     // adding &nojsoncallback=1 means we take away the "jsonFlickrApi(" prefix
     private static final String recent_url = "https://api.flickr.com/services/rest/?method=flickr.photos.getRecent&extras=url_s&api_key=c84cdde1e14e047f3a40f41c3eefcc1d&format=json&nojsoncallback=1&page=";
 
@@ -50,12 +46,11 @@ public class MainActivity extends AppCompatActivity implements Observer {
     private GridLayoutManager layoutManager;
     private MainGridListAdapter adapter;
     private FlickrData result;
-    private GetPhotos getPhotos;
     private static String currentUrl;
 
     private static final int REQUEST_PERMISSIONS = 123;
 
-    private ArrayList<String> filePaths = new ArrayList<>();
+    private ArrayList<Photo> thePhotos = new ArrayList<>();
     private int currentPage = 1;
 
     private EndlessRecyclerViewScrollListener scrollListener;
@@ -68,7 +63,6 @@ public class MainActivity extends AppCompatActivity implements Observer {
         initImageDownlaoder();
 
         if (currentUrl == null) { //clean run
-            clearSavedFiles();
             currentUrl = recent_url + currentPage;
         }
 
@@ -79,9 +73,7 @@ public class MainActivity extends AppCompatActivity implements Observer {
         int displayWidth = getResources().getDisplayMetrics().widthPixels;
 
         int imageWidth = displayWidth / 3;
-        //gridView.setColumnWidth(imageWidth);
-        //gridView.setStretchMode(GridView.NO_STRETCH);
-        adapter = new MainGridListAdapter(this);
+        adapter = new MainGridListAdapter(this, gridView);
         gridView.setAdapter(adapter);
         layoutManager = new GridLayoutManager(this, 3);
         gridView.setLayoutManager(layoutManager);
@@ -150,14 +142,6 @@ public class MainActivity extends AppCompatActivity implements Observer {
         new DownloadListFromURL().execute(currentUrl);
     }
 
-    private void clearSavedFiles() {
-        File dir = new File(recentCache);
-        if (dir.exists())
-            for (File file : dir.listFiles()) {
-                file.delete();
-            }
-    }
-
     private void finishSetup() {
         new DownloadListFromURL().execute(currentUrl);
     }
@@ -169,8 +153,8 @@ public class MainActivity extends AppCompatActivity implements Observer {
 
         switch (requestCode) {
             case REQUEST_PERMISSIONS: {
-                for (int i = 0; i < grantResults.length; i++) {
-                    if (grantResults.length > 0 && grantResults[i] == PackageManager.PERMISSION_GRANTED) {
+                for (int result : grantResults) {
+                    if (result == PackageManager.PERMISSION_GRANTED) {
                         finishSetup();
                     } else {
                         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -193,24 +177,7 @@ public class MainActivity extends AppCompatActivity implements Observer {
 
     @Override
     public void gotInfo(String string) {
-        synchronized (filePaths) {
-            filePaths.add(string);
-        }
-
-        runOnUiThread(new Runnable() {
-
-            @Override
-            public void run() {
-                synchronized (filePaths) {
-                    adapter.setList(filePaths);
-                }
-            }
-        });
     }
-
-//    public FlickrData getResult() {
-//        return result;
-//    }
 
     /**
      * Background Async Task to download data
@@ -254,21 +221,26 @@ public class MainActivity extends AppCompatActivity implements Observer {
 
                 Gson gson = new Gson();
                 result = gson.fromJson(jsonString, FlickrData.class);
-                getPhotos = new GetPhotos();
-                getPhotos.registerObserver(MainActivity.this);
-                getPhotos.execute(result);
+                if (result != null && result.photosResult != null
+                        && result.photosResult.photosList != null
+                        && result.photosResult.photosList.size() > 0) {
+                    for (Photo photo : result.photosResult.photosList) {
+                        synchronized (thePhotos) {
+                            thePhotos.add(photo);
+                        }
 
-//                if (result != null && result.photosResult != null
-//                        && result.photosResult.photosList != null
-//                        && result.photosResult.photosList.size() > 0) {
-//                    for (Photo photos : result.photosResult.photosList) {
-//
-//                        notifyString = "https://farm" + photos.farm
-//                                + ".staticflickr.com/" + photos.server + "/"
-//                                + photos.id + "_" + photos.secret + "_" + "q" + ".jpg";
-//                        notifyObservers();
-//                    }
-//                }
+                    }
+                    runOnUiThread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            synchronized (thePhotos) {
+                                adapter.setList(thePhotos);
+                            }
+                        }
+                    });
+
+                }
 
                 // closing streams
                 output.close();

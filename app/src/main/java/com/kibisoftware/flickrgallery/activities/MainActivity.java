@@ -1,10 +1,12 @@
 package com.kibisoftware.flickrgallery.activities;
 
 import android.Manifest;
+import android.app.SearchManager;
+import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
-import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
@@ -13,8 +15,11 @@ import android.os.Bundle;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.View;
 import android.widget.ProgressBar;
+import android.widget.SearchView;
 
 import com.google.gson.Gson;
 import com.kibisoftware.flickrgallery.Interfaces.Observer;
@@ -30,7 +35,6 @@ import com.nostra13.universalimageloader.core.assist.QueueProcessingType;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
-import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
@@ -39,7 +43,9 @@ import java.util.ArrayList;
 public class MainActivity extends AppCompatActivity implements Observer {
 
     // adding &nojsoncallback=1 means we take away the "jsonFlickrApi(" prefix
-    private static final String recent_url = "https://api.flickr.com/services/rest/?method=flickr.photos.getRecent&extras=url_s&api_key=c84cdde1e14e047f3a40f41c3eefcc1d&format=json&nojsoncallback=1&page=";
+    private static final String recent_url = "https://api.flickr.com/services/rest/?method=flickr.photos.getRecent&extras=url_s&api_key=c84cdde1e14e047f3a40f41c3eefcc1d&format=json&nojsoncallback=1";
+
+    private static final String search_url = "https://api.flickr.com/services/rest/?method=flickr.photos.search&extras=url_s&api_key=c84cdde1e14e047f3a40f41c3eefcc1d&format=json&nojsoncallback=1&text=";
 
     private RecyclerView gridView;
     private ProgressBar progressBar;
@@ -59,12 +65,13 @@ public class MainActivity extends AppCompatActivity implements Observer {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        
-        initImageDownlaoder();
 
         if (currentUrl == null) { //clean run
-            currentUrl = recent_url + currentPage;
+            currentUrl = recent_url;
         }
+
+        handleIntent(getIntent());
+        initImageDownlaoder();
 
         gridView = findViewById(R.id.gridView);
         progressBar = findViewById(R.id.progressBar);
@@ -138,12 +145,50 @@ public class MainActivity extends AppCompatActivity implements Observer {
 
     private void loadNextData(int page) {
         currentPage = page;
-        currentUrl = recent_url + currentPage;
-        new DownloadListFromURL().execute(currentUrl);
+        String urlToUse = currentUrl + "&page=" + currentPage;
+        new DownloadListFromURL().execute(urlToUse);
     }
 
     private void finishSetup() {
-        new DownloadListFromURL().execute(currentUrl);
+        String urlToUse = currentUrl + "&page=" + currentPage;
+        new DownloadListFromURL().execute(urlToUse);
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.optionsmenu, menu);
+
+        // Associate searchable configuration with the SearchView
+        SearchManager searchManager =
+                (SearchManager) getSystemService(Context.SEARCH_SERVICE);
+        SearchView searchView =
+                (SearchView) menu.findItem(R.id.search).getActionView();
+        searchView.setSearchableInfo(
+                searchManager.getSearchableInfo(getComponentName()));
+
+
+        return true;
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent intent) {
+        if (Intent.ACTION_SEARCH.equals(intent.getAction())) {
+            String query = intent.getStringExtra(SearchManager.QUERY);
+            //use the query to search your data somehow
+            currentUrl = search_url + query;
+
+            currentPage = 1;
+            thePhotos.clear();
+            adapter.notifyDataSetChanged();
+            scrollListener.resetState();
+            String urlToUse = currentUrl + "&page=" + currentPage;
+            new DownloadListFromURL().execute(urlToUse);
+        }
     }
 
 

@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Flickr Gallery</string>
+    <string name="permissions_message">In order to work properly, this application requires permission to read and <write></write> your files, please accept the next dialog</string>
+    <string name="ok">OK</string>
+    <string name="permission_fail">The app was not allowed to read/write your storage. Hence, it cannot function properly. Please consider granting it this permission</string>
+</resources>
